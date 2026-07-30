@@ -1,0 +1,41 @@
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: caps-link-webui
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    environment:
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - WEBUI_NAME=CAPS-Link
+      - DEFAULT_MODELS=caps-link
+      - ENABLE_SIGNUP=true
+      - WEBUI_AUTH=true
+      - ANONYMIZED_TELEMETRY=false
+      - DO_NOT_TRACK=true
+      - SCARF_NO_ANALYTICS=true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - caps-link_open_webui_data:/app/backend/data
+    depends_on:
+      - fastapi
+
+  fastapi:
+    build:
+      context: ../TOOLS_SQL
+      dockerfile: Dockerfile
+    container_name: caps-link-fastapi
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../TOOLS_SQL/.env
+    volumes:
+      - ../TOOLS_SQL:/app
+      - fastapi_data:/app/data
+
+volumes:
+  caps-link_open_webui_data:
+    external: true
+  fastapi_data:

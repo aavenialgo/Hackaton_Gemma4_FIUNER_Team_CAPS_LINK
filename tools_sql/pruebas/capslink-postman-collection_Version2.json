@@ -1,0 +1,254 @@
+{
+  "info": {
+    "_postman_id": "9bb59e1f-bdf7-4b6f-a47a-3fba3b9ad001",
+    "name": "CAPS-Link API - MVP Tests",
+    "description": "Batería de pruebas para FastAPI (pacientes, profesionales, consultas SOAP).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000" },
+    { "key": "dni", "value": "30111222" },
+    { "key": "paciente_id", "value": "" },
+    { "key": "profesional_id", "value": "" },
+    { "key": "consulta_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "01 - Health",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('ok=true', function () { pm.expect(json.ok).to.eql(true); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - Crear profesional",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/profesionales",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre_completo\": \"Dra. María López\",\n  \"matricula\": \"MP-45678\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 o 409', function () { pm.expect([200,409]).to.include(pm.response.code); });",
+              "if (pm.response.code === 200) {",
+              "  const json = pm.response.json();",
+              "  pm.environment.set('profesional_id', json.id);",
+              "}",
+              "if (pm.response.code === 409) {",
+              "  // Si ya existe, podés setear manualmente profesional_id si lo conocés",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 - Crear paciente (Juan Gómez)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/pacientes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"dni\": \"{{dni}}\",\n  \"nombre_completo\": \"Juan Gómez\",\n  \"fecha_nacimiento\": \"1984-03-15\",\n  \"domicilio\": \"San Martín 123\",\n  \"telefono\": \"+54 343 154000000\",\n  \"cobertura_medica\": \"IOSPER\",\n  \"antecedentes_alergias\": \"Alergia a la dipirona\",\n  \"medicamentos_cronicos\": \"Broncodilatador habitual por asma controlada\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200 o 409', function () { pm.expect([200,409]).to.include(pm.response.code); });",
+              "if (pm.response.code === 200) {",
+              "  const json = pm.response.json();",
+              "  pm.environment.set('paciente_id', json.id);",
+              "}",
+              "if (pm.response.code === 409) {",
+              "  // Lo resolvemos en el próximo GET por DNI",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 - Obtener paciente por DNI (set paciente_id)",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/pacientes/{{dni}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.environment.set('paciente_id', json.id);",
+              "pm.test('Tiene id', function () { pm.expect(json.id).to.be.a('number'); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 - Crear consulta (apertura)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/consultas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"paciente_id\": {{paciente_id}},\n  \"motivo_consulta\": \"Tos seca persistente, decaimiento y fiebre de 38.5°C de 3 días de evolución\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.environment.set('consulta_id', json.id);"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 - Completar SOAP + Validar",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/consultas/{{consulta_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"soap_subjetivo\": \"Paciente de 42 años refiere tos seca persistente, decaimiento y fiebre de 38.5°C desde hace 3 días; alivio parcial con ibuprofeno.\",\n  \"soap_objetivo\": \"Auscultación con sibilancias leves bilaterales. Saturación O2 97%.\",\n  \"soap_analisis\": \"Cuadro respiratorio infeccioso con componente bronquial en paciente asmático controlado.\",\n  \"soap_plan\": \"Reposo 48 horas. Continuar broncodilatador habitual. Amoxicilina 875 mg cada 12 horas por 7 días. Pauta de alarma: si presenta disnea, concurrir a guardia hospitalaria de referencia.\",\n  \"profesional_id\": {{profesional_id}},\n  \"estado_validacion\": \"VALIDADO\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Estado VALIDADO', function () { pm.expect(json.estado_validacion).to.eql('VALIDADO'); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 - Obtener consulta por ID",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/consultas/{{consulta_id}}"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('Tiene SOAP subjetivo', function () { pm.expect(json.soap_subjetivo).to.be.ok; });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 - Listar consultas por DNI",
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/api/pacientes/{{dni}}/consultas"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 200', function () { pm.response.to.have.status(200); });",
+              "const json = pm.response.json();",
+              "pm.test('consultas es array', function () { pm.expect(Array.isArray(json.consultas)).to.eql(true); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 - Negativa: crear consulta con paciente inexistente",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/consultas",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"paciente_id\": 999999,\n  \"motivo_consulta\": \"Prueba paciente inexistente\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 - Negativa: profesional inexistente en PATCH",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/api/consultas/{{consulta_id}}",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"profesional_id\": 999999,\n  \"estado_validacion\": \"VALIDADO\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status 404', function () { pm.response.to.have.status(404); });"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    }
+  ]
+}

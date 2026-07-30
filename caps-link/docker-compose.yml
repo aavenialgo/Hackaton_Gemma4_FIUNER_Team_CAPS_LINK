@@ -1,0 +1,29 @@
+services:
+  # No levantamos Ollama en Docker: usamos el que ya tenés instalado nativo
+  # en el host, con gemma4:e2b y gemma4:e4b ya descargados. Nada de "pull".
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: caps-link-webui
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    environment:
+      # host.docker.internal apunta al localhost de tu máquina desde
+      # dentro del contenedor.
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - WEBUI_NAME=CAPS-Link
+      - DEFAULT_MODELS=caps-link
+      - ENABLE_SIGNUP=true
+      - WEBUI_AUTH=true
+      - ANONYMIZED_TELEMETRY=false
+      - DO_NOT_TRACK=true
+      - SCARF_NO_ANALYTICS=true
+    extra_hosts:
+      # Necesario en Linux; en Docker Desktop (Win/Mac) ya funciona solo,
+      # pero no molesta dejarlo.
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - open_webui_data:/app/backend/data
+
+volumes:
+  open_webui_data:
